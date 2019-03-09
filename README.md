@@ -33,17 +33,37 @@ The mosaic images are rectangular in shape. Of course, the sky itself is not. In
 
 The solid angle of any surface can be calculated using the following equation:
 
-<!--- insert eq ![solid angle double integral equation]() --->
+![Derivation of solid angle formula](https://github.com/kkarnes/skyBrightnessMetrics/blob/master/static/solid_angle_1.PNG)
 
-For our purposes, we evaluate the double integral for a single pixel in the sky:
+For our purposes, we evaluate the double integral for a single pixel in the sky, with width &Delta;&#981; and height &Delta;&theta;.
 
-<!--- insert evaluation of integral ![]() --->
+![Derivation of solid angle formula](https://github.com/kkarnes/skyBrightnessMetrics/blob/master/static/solid_angle_2.PNG)
 
-This equation can be simplified by using the small-angle approximation as follows:
+![Derivation of solid angle formula](https://github.com/kkarnes/skyBrightnessMetrics/blob/master/static/solid_angle_3.PNG)
 
-<!--- insert derivation ![]() --->
+![Derivation of solid angle formula](https://github.com/kkarnes/skyBrightnessMetrics/blob/master/static/solid_angle_4.PNG)
 
-We use this simplified expression to calculate the solid angle in the illuminance calculations.
+![Derivation of solid angle formula](https://github.com/kkarnes/skyBrightnessMetrics/blob/master/static/solid_angle_5.PNG)
+
+This equation can be simplified by making two substitutions using the cosine sum and difference formulas:
+
+![Derivation of solid angle formula](https://github.com/kkarnes/skyBrightnessMetrics/blob/master/static/solid_angle_6.PNG)
+
+![Derivation of solid angle formula](https://github.com/kkarnes/skyBrightnessMetrics/blob/master/static/solid_angle_7.PNG)
+
+![Derivation of solid angle formula](https://github.com/kkarnes/skyBrightnessMetrics/blob/master/static/solid_angle_8.PNG)
+
+&Delta;&theta; = 0.05&deg;, so &Delta;&theta;/2 is small. Therefore, we can use the small angle approximation to say that sin(&Delta;&theta;)/2 &#8776; &Delta;&theta;/2.
+
+![Derivation of solid angle formula](https://github.com/kkarnes/skyBrightnessMetrics/blob/master/static/solid_angle_9.PNG)
+
+![Derivation of solid angle formula](https://github.com/kkarnes/skyBrightnessMetrics/blob/master/static/solid_angle_10.PNG)
+
+&Delta;&theta; = 0.05&deg; and &Delta;&#981; = 0.05&deg;, so:
+
+![Derivation of solid angle formula](https://github.com/kkarnes/skyBrightnessMetrics/blob/master/static/solid_angle_11.PNG)
+
+<!-- include note: In the script, these two factors of the solid angle are calculated separately. Solid angle is first defined as 0.05 degrees squared, and then later is multiplied by sin(theta) during the horizontal and vertical illuminance calculations separately. -->
 
 <!---
 Show where/how it's implemented in the code:
@@ -52,18 +72,27 @@ The first two lines of `get_horiz_illum()` multiply the sky illuminance (E<sub>i
 correction_factor = n.cos(n.deg2rad(theta)) * n.sin(n.deg2rad(theta))
 E_h = E_i * correction_factor
 ```
-solid angle factor:
-The sin(theta) portion of the correction factor 
-angle of incidence:
-Theta (the zenith angle) ranges from 0&deg; at the zenith to 90&deg; at the horizon. The cosine of the zenith angle, therefore, ranges from 1 at the zenith to 0 at the horizon. This portion of the correction factor accounts for the angle of incidence of the light. This correction factor comes from `get_horiz_illum`; we are considering how much light strikes a flat horizontal surface. Light coming from the zenith hits perpendicular to the horizontal surface and all of the light illuminates the surface at that point. On the other hand, only a small percentage of the light coming from just above the horizon will illuminate the surface, and light coming from the horizon itself, parallel to the surface, will not illuminate the surface at all. The cos(theta) factor accounts for this.
 This is done in two separate steps simply due to the fact that the shape of the theta array is not the same for the horizontal and vertical illuminance calculations (theta values range to 90 and 96 degrees respectively).
 --->
 
-### 3. Horizontal Illuminance 
-Horizontal illuminance is reported in milli-lux (mlx) and measures the amount of light striking a flat, horizontal surface such as the ground.
+### 3. Calculating Illuminance
+One of the inputs to this script is a mosaic image raster that contains sky brightness values in nanolamberts (nL). Once the values have been read into a 2D numpy array, these sky brightness values are converted from nanolamberts to sky brightness luminance values, b<sub>i</sub>, in &mu;cd m<sup>-2</sup>. Illuminance (in millilux) can be calculated from b<sub>i</sub> using the equation below.
 
-### 4. Vertical Illuminance
-Vertical illuminance is also reported in mlx and measures the amount of light striking a flat, vertical surface. This vertical plane can face any direction around the horizon, so vertical illuminance is calculated for all azimuth values using a given increment (typically five degrees). The maximum vertical illuminance value is the value when the surface is facing the sky in the brightest direction.
+<img src="https://github.com/kkarnes/skyBrightnessMetrics/blob/master/static/E_i.PNG" alt="Illuminance equation" height="90">
+
+#### Horizontal Illuminance
+Horizontal illuminance (E<sub>h</sub>) is calculated using the equation below. It is reported in millilux (mlx) and measures the amount of light striking a flat, horizontal surface such as the ground.
+
+<img src="https://github.com/kkarnes/skyBrightnessMetrics/blob/master/static/E_h.PNG" alt="Horizontal illuminance equation" height="90">
+
+The zenith angle, &theta;, ranges from 0&deg; at the zenith to 90&deg; at the horizon. Cos&theta;, therefore, ranges from 1 at the zenith to 0 at the horizon. The cos&theta; factor accounts for the angle of incidence of the light striking the horizontal surface. Light coming from the zenith hits the horizontal surface perpendicularly, while only a small percentage of the light coming from near the horizon will directly strike the surface, and light coming from the horizon itself travels parallel to the surface and will not illuminate the surface at all.
+
+#### Vertical Illuminance
+Vertical illuminance measures the amount of light striking a flat, vertical surface. This vertical plane can face any direction/azimuth around the horizon, so vertical illuminance values are calculated for all azimuth values (0&deg; to 360&deg;) in a specified increment (typically 5&deg;). The increment can be changed in process.py if desired.
+
+<img src="https://github.com/kkarnes/skyBrightnessMetrics/blob/master/static/E_v.PNG" alt="Vertical illuminance equation" height="90">
+
+For a vertical surface, the angle of incidence of light on the surface varies with both zenith angle (&theta;) and the angle along the azimuth axis between the light and the direction the surface faces (&Phi;). Note that in the equation above, the azimuth of the vertical surface is &Phi;<sub>i</sub>, while the angle of incidence of the light on the vertical surface is &Phi;.
 
 #### References
 <sup>Duriscoe, Dan M. "Photometric indicators of visual night sky quality derived from all-sky brightness maps." Journal of Quantitative Spectroscopy and Radiative Transfer (2016): 181, 33-45.</sup>
