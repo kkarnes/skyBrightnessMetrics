@@ -31,52 +31,16 @@ The mosaic images are rectangular in shape. Of course, the sky itself is not. In
 
 #### Solid Angle Derivation
 
-The solid angle of any surface can be calculated using the following equation:
+<img src="https://github.com/kkarnes/skyBrightnessMetrics/blob/master/static/solid_angle_derivation_1.PNG" alt="Derivation of solid angle formula">
 
-![Derivation of solid angle formula](https://github.com/kkarnes/skyBrightnessMetrics/blob/master/static/solid_angle_1.PNG)
+<img src="https://github.com/kkarnes/skyBrightnessMetrics/blob/master/static/solid_angle_derivation_2.PNG" alt="Derivation of solid angle formula">
 
-For our purposes, we evaluate the double integral for a single pixel in the sky, with width &Delta;&#981; and height &Delta;&theta;.
-
-![Derivation of solid angle formula](https://github.com/kkarnes/skyBrightnessMetrics/blob/master/static/solid_angle_2.PNG)
-
-![Derivation of solid angle formula](https://github.com/kkarnes/skyBrightnessMetrics/blob/master/static/solid_angle_3.PNG)
-
-![Derivation of solid angle formula](https://github.com/kkarnes/skyBrightnessMetrics/blob/master/static/solid_angle_4.PNG)
-
-![Derivation of solid angle formula](https://github.com/kkarnes/skyBrightnessMetrics/blob/master/static/solid_angle_5.PNG)
-
-This equation can be simplified by making two substitutions using the cosine sum and difference formulas:
-
-![Derivation of solid angle formula](https://github.com/kkarnes/skyBrightnessMetrics/blob/master/static/solid_angle_6.PNG)
-
-![Derivation of solid angle formula](https://github.com/kkarnes/skyBrightnessMetrics/blob/master/static/solid_angle_7.PNG)
-
-![Derivation of solid angle formula](https://github.com/kkarnes/skyBrightnessMetrics/blob/master/static/solid_angle_8.PNG)
-
-&Delta;&theta; = 0.05&deg;, so &Delta;&theta;/2 is small. Therefore, we can use the small angle approximation to say that sin(&Delta;&theta;)/2 &#8776; &Delta;&theta;/2.
-
-![Derivation of solid angle formula](https://github.com/kkarnes/skyBrightnessMetrics/blob/master/static/solid_angle_9.PNG)
-
-![Derivation of solid angle formula](https://github.com/kkarnes/skyBrightnessMetrics/blob/master/static/solid_angle_10.PNG)
-
-&Delta;&theta; = 0.05&deg; and &Delta;&#981; = 0.05&deg;, so:
-
-![Derivation of solid angle formula](https://github.com/kkarnes/skyBrightnessMetrics/blob/master/static/solid_angle_11.PNG)
-
-<!-- include note: In the script, these two factors of the solid angle are calculated separately. Solid angle is first defined as 0.05 degrees squared, and then later is multiplied by sin(theta) during the horizontal and vertical illuminance calculations separately. -->
-
-<!---
-Show where/how it's implemented in the code:
-The first two lines of `get_horiz_illum()` multiply the sky illuminance (E<sub>i</sub>)by a correction factor that includes both a cos(theta) and sin(theta) factor.
-```
-correction_factor = n.cos(n.deg2rad(theta)) * n.sin(n.deg2rad(theta))
-E_h = E_i * correction_factor
-```
+<!-- include note: In the script, these two factors of the solid angle are calculated separately. Solid angle is first defined as 0.05 degrees squared, and then later is multiplied by sin(theta) during the horizontal and vertical illuminance calculations separately.
 This is done in two separate steps simply due to the fact that the shape of the theta array is not the same for the horizontal and vertical illuminance calculations (theta values range to 90 and 96 degrees respectively).
 --->
 
 ### 3. Calculating Illuminance
-One of the inputs to this script is a mosaic image raster that contains sky brightness values in nanolamberts (nL). Once the values have been read into a 2D numpy array, these sky brightness values are converted from nanolamberts to sky brightness luminance values, b<sub>i</sub>, in &mu;cd m<sup>-2</sup>. Illuminance (in millilux) can be calculated from b<sub>i</sub> using the equation below.
+One input to this script is a mosaic image raster that contains sky brightness values in nanolamberts (nL). Once the values have been read into a 2D numpy array, these sky brightness values are converted from nanolamberts to sky brightness luminance values, b<sub>i</sub>, in &mu;cd m<sup>-2</sup>. Illuminance can be calculated from b<sub>i</sub> using the equation below.
 
 <img src="https://github.com/kkarnes/skyBrightnessMetrics/blob/master/static/E_i.PNG" alt="Illuminance equation" height="90">
 
