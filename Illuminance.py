@@ -3,22 +3,26 @@
 #
 #NPS Night Skies Program
 #
-#Last updated: 2019/03/06
+#Last updated: 2019/03/18
 #
-#This script calculates the horizontal and vertical illuminance from the image 
-#containing all light sources. The script does this in the following steps:
-#	(1) Reads the raster into a numpy array, converts units to illuminance in mlx
+#This script calculates horizontal and vertical illuminance metrics from a mosaic image.
+#The script does this in the following steps:
+#	(1) Reads the raster image into a numpy array, converts units from nL to mlx
 #	(2) Horizontal illuminance - applies a horizon mask and then calculates the horizontal illuminance value
 #	(3) Vertical illuminance - calculates vertical illuminance values for azimuth angles 0 to 360 using a specified interval (set to 5)
 #
 #Input: 
-#   (1) filepath.py -- the file name and location of the image on which to calculate metrics
+#   (1) filepath.py -- contains a variable 'griddata' with the location/name of the working directory.
+#		The directory should contain the raster image on which to calculate metrics (named 'skybrightnl') and 'mask.tif' (see below).
+#		This is also the location where illuminance_results.txt will be saved.
+#		Note: You should have a separate working directory for each dataset to be processed, and illuminance.py and filepath.py
+#		should be stored above all those directories.
 #   (2) mask.tif -- horizon mask raster image
 #
 #Output:
-#   (1) illuminance_results.txt -- a text file with azimuth angle, vertical illuminance, and 
-#       horizontal illuminance values
-#   (2) A plot comparing the results for vertical illuminance from this script to the results from Dan's secondbatchv4.py script
+#   (1) illuminance_results.txt -- a text file with azimuth angle, vertical illuminance, and horizontal illuminance values
+#   (2) A plot comparing the results for vertical illuminance from this script to the results from Dan's secondbatchv4.py script.
+#		The plot can optionally be saved manually at the conclusion of the script.
 #
 #History:
 #	Katie Karnes -- Created
@@ -47,25 +51,24 @@ def nl_to_ucd_per_m2(nl):
 
 def get_panoramic_raster(file):
     """    
-    This function reads in a raster file and converts it into a Python array. 
-    Only area above the horizon is preserved to enforce consistency. This 
+    This function reads in a raster file and converts it into a numpy array. This 
     function does not work on full resolution mosaics due to limited memory space.
 
     Arguments:
-    set -- data set; i.e. 1 
-    band -- filter; either 'V' or 'B'
-    raster -- input raster; either 'gal', 'zod', or 'median' but not 'fullres'
+    file -- name of the raster file to be read (str)
 
     Returns:
-    A -- a 2D Python array of shape [1800,7200]
-	A_mask -- a 2D Python array of shape [1800,7200]
+    A -- a 2D numpy array of shape [1920,7200]
+	A_mask -- a 2D numpy array of shape [1800,7200]
     """
+	# For vertical illuminance, sky area down to zenith angle = 96 deg is preserved (corresponds to 1920 px)
     arcpy_raster = arcpy.sa.Raster(file)  
     A = arcpy.RasterToNumPyArray(arcpy_raster, "#", "#", "#", -9999)[:1920,:7200] # for vert illum, crop to za = 96
 	
+	# For horizontal illuminance (horizon mask has already been applied), only sky area down to zenith angle = 90 deg is preserved (1800 px)
     file_mask = file + "_m"
     arcpy_raster_mask = arcpy.sa.Raster(file_mask)
-    A_mask= arcpy.RasterToNumPyArray(arcpy_raster_mask, "#", "#", "#", -9990)[:1800,:7200]
+    A_mask= arcpy.RasterToNumPyArray(arcpy_raster_mask, "#", "#", "#", -9999)[:1800,:7200]
 	
     return A, A_mask
 
@@ -79,14 +82,14 @@ def get_horiz_illum(theta, E_i):
     E_i -- array of illuminance values in mlx
     
     Returns:
-    E_h -- horizontal illuminance value in mlx
+    E_h -- horizontal illuminance value in mlx (float)
     """
-	# comment on both correction factors here
     correction_factor = n.cos(n.deg2rad(theta)) * n.sin(n.deg2rad(theta))
     E_h = E_i * correction_factor
-    # break into two calculations to reduce memory usage
+	# break into two calculations to reduce memory usage
     E_h1 = E_h[:,0:3600]
     E_h2 = E_h[:,3600:7201]
+	# sum all positive values
     E_h1 = n.sum(E_h1[E_h1>0])
     E_h2 = n.sum(E_h2[E_h2>0])
     E_f = round(E_h1+E_h2, 9)
@@ -99,12 +102,12 @@ def vert_illuminance(phi_0, phi, az, theta, E_i):
     Arguments:
     phi_0 -- azimuth angle (in degrees) that the vertical surface faces
     phi -- array of possible angles of incidence on vertical surface (-90 to 90 degrees)
-    az -- array of azimuth angles in degrees
-    theta -- array of zenith angles in degrees
+    az -- array of azimuth angles (in degrees)
+    theta -- array of zenith angles (in degrees)
     E_i -- array of illuminance values in mlx
 
     Returns:
-    E_v = vertical illuminance value in mlx for the given phi_0 value
+    E_v = vertical illuminance value in mlx for the given phi_0 value (float)
     """
     # define start and end values around phi_0
     start = phi_0 - 90
@@ -121,7 +124,7 @@ def vert_illuminance(phi_0, phi, az, theta, E_i):
         indices = n.transpose(n.where((az >= start) & (az <= end)))[:,1]
     selected_arr = E_i[:,indices]
     
-	# for most datasets, shape of selected_arr already matches theta, but in some cases theta may need to be cropped to fit
+	# for most datasets, shape of selected_arr will match theta, but in some cases height of theta may need to be cropped at horizon
     height = n.shape(selected_arr)[0]
     theta = theta[:height,:]
     # cos(phi) is for angle of incidence along azimuth, first sin(theta) is for angle of incidence along altitude,
@@ -134,8 +137,8 @@ def vert_illuminance(phi_0, phi, az, theta, E_i):
 
 def get_vert_illum_values(az, theta, E_i, interval):
     """
-    This function calls vertical_illuminance for all the phi_0 values in phi_0_range and returns an array
-    of all the vertical illuminance values.
+    This function calls the function vert_illuminance() for each phi_0 value in phi_0_range and returns an array
+    of all the values returned by vert_illuminance()
     
     Arguments:
     az -- array of azimuth angles in degrees
@@ -160,10 +163,11 @@ def get_vert_illum_values(az, theta, E_i, interval):
 
 def calculate_illuminance(az, theta, theta_96, E_i, E_i_mask, interval):
     """
-	This function calls the functions to calculate both horizontal and vertical illuminance for a single array
+	This function calls the functions to calculate both horizontal and vertical illuminance for a single image stored in an array
 	and creates a text file with those values. The text file is comma-delimited with three columns:
 	azimuth (in degrees), vertical illuminance (in mlx), and horizontal illuminance (in mlx).
-	This function also currently displays a plot comparing vertical illuminance results from this script with results from Dan Duriscoe's code.
+	This function also displays a plot (which can be saved manually but is not automatically saved) that compares
+	the vertical illuminance results from this script with results from Dan's 'secondbatchv4.py' script.
     
     Arguments:
     az -- array of azimuth angles in degrees
@@ -176,17 +180,21 @@ def calculate_illuminance(az, theta, theta_96, E_i, E_i_mask, interval):
     Returns:
     None
     """
+	# call functions to calculate horizontal and vertical illuminance
     E_h = get_horiz_illum(theta, E_i_mask)
     E_v_arr = get_vert_illum_values(az, theta_96, E_i, interval)
     
+	# open text file and write headers
     output = open(filepath.griddata + "\\illuminance_results.txt","w")
     output.write("Azimuth, Vertical Illuminance (mlx), Horizontal Illuminance (mlx)\n")
+	# create new array of azimuth values for writing to text file
     azimuth = n.arange(0,360,interval)
     index = n.arange(0, n.size(azimuth), 1)
     
     Katie_data = n.zeros_like(azimuth, dtype=float)
     
-    # changes order from -180-180 to 0-360cr
+    # reorder results in E_v_arr to match azimuth order (instead of -180 to 180, go from 0 to 360)
+	# then write results to text file
     midpt = n.size(index)/2
     for i in index:
         if i < midpt:
@@ -197,34 +205,22 @@ def calculate_illuminance(az, theta, theta_96, E_i, E_i_mask, interval):
         output.write('{0}, {1}, {2}\n'.format(azimuth[i], vert_illum, E_h))
     output.close()
 	
-	# For debugging
-    # plot and compare results with Dan's results
+    # plot and compare results with Dan's results - this was used for testing, but could be modified to just plot current results
     Dan_data = open(filepath.griddata + "\\Dan_results.txt").read().splitlines()
     Dan_data[:] = [float(line) for line in Dan_data]
     D, = plt.plot(n.arange(0,360,5), Dan_data, 'b.')
     K, = plt.plot(azimuth, Katie_data, 'r.')
-    plt.legend([K, D], ['Katie', 'Dan'])
+    plt.legend([K, D], ['illuminance.py', 'secondbatchv4.py'])
     plt.xticks(range(0,361,45))
     plt.xlabel('Azimuth (degrees)')
     plt.ylabel('Vertical Illuminance (mlx)')
     plt.show()
 
-# specify data to run
+# get raster image location from filepath.py
 raster_filepath = filepath.griddata + "\\skybrightnl"
-
-# # for future use:
-# set = 1
-# band = 'V'
-# raster = 'median'
-# filter = {'V':"",'B':"/B"}
-# path = {'gal':"/gal/galtopmags",
-        # 'zod':"/zod/zodtopmags",
-        # 'median':filter[band]+"/median/skybrightmags"}
-# raster_filepath = filepath.griddata+"/S_0"+str(set)+path[raster]
 
 # apply horizon mask using arcpy
 arcpy.CheckOutExtension("spatial")
-# arcpy.env.workspace = "C:/Users/kkarnes/PythonScripts"
 output = arcpy.sa.SetNull(filepath.griddata+"\\mask.tif", raster_filepath, "Value = 0")
 arcpy.env.overwriteOutput = True
 output.save(raster_filepath + "_m")
@@ -238,12 +234,11 @@ medianMosaicArr_mask = nl_to_ucd_per_m2(medianMosaicArr_mask)
 sky_coords = n.ogrid[0:90:1800j,-180:180:7200j]
 theta = sky_coords[0]
 az = sky_coords[1]
-
 sky_coords_za96 = n.ogrid[0:96:1920j,-180:180:7200j]
 theta_96 = sky_coords_za96[0]
 
 # calculate solid angle in square radians, then illuminance in mlx
-solid_angle = (n.deg2rad(0.05))**2
+solid_angle = (n.deg2rad(0.05))**2 # is multiplied by the sin(theta) factor later in get_horiz_illum() and vert_illuminance()
 E_i = medianMosaicArr * solid_angle / 1000
 E_i_mask = medianMosaicArr_mask * solid_angle / 1000
 
