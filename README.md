@@ -10,6 +10,7 @@
   - [Projecting a 3D sky onto a 2D image](#3-projecting-a-3d-sky-onto-a-2d-image)
     - [Solid Angle Derivation](#solid-angle-derivation)
   - [Calculating Illuminance](#4-calculating-illuminance)
+    - [Natural Reference Conditions](#natural-reference-conditions)
     - [Horizontal illuminance](#horizontal-illuminance)
     - [Vertical Illuminance](#vertical-illuminance)
   - [Output](#5-output)
@@ -33,9 +34,13 @@ The metrics and methods implemented in this script and described below were adop
 ![Flowchart of functions, scripts, and files](https://github.com/kkarnes/skyBrightnessMetrics/blob/master/static/Illuminance_script_flowchart.png)
 
 ### 2. Required Files
-`filepath.py` stores the location of the mosaic raster image that you want to calculate metrics on in the variable `griddata`.
+`filepath.py` stores, in the variable `griddata`, the location and name of a directory that contains:
+1) `skybrightnl` -- the raster image on which to calculate metrics.
+2) `mask.tif` -- a raster image that contains a horizon mask (this is also an output product of the NSNSD Data Reduction Pipeline). The mask is applied to the mosaic image before calculating horizontal illuminance.
 
-`mask.tif` is a raster image that contains a horizon mask (this is also an output product of the NSNSD Data Reduction Pipeline). The mask is applied to the mosaic image before calculating horizontal illuminance.
+This directory is also the location where the output file `illuminance_results.txt` will be saved.
+
+Note: You should have a separate directory for each dataset to be processed and `illuminance.py` and `filepath.py` should be stored above all those directories.
 
 ### 3. Projecting a 3D sky onto a 2D image
 The mosaic images are rectangular in shape. Of course, the sky itself is not. In order to properly account for the projection of pieces of the sky onto pixels in our image, it is necessary to consider how much sky area each pixel represents. Each pixel does not represent a constant solid angle in the sky, rather, the solid angle subtended by each pixel varies with zenith angle.
@@ -50,15 +55,15 @@ The mosaic images are rectangular in shape. Of course, the sky itself is not. In
 These two factors of the solid angle above appear in the calculations in this script at different times. The solid angle is first defined as (0.05&deg;)<sup>2</sup> and is later multipled by sin&theta; during the horizontal and vertical illuminance calculations. This is done in two separate steps simply due to the fact that the shape of the theta array is not the same for the horizontal and vertical illuminance calculations (theta values range to 90&deg; and 96&deg; respectively).
 
 ### 4. Calculating Illuminance
-One input to this script is a mosaic image raster that contains sky brightness values in nanolamberts (nL). Once the values have been read into a 2D numpy array, these sky brightness values are converted from nanolamberts to sky brightness luminance values (b<sub>i</sub>), which has units of &mu;cd m<sup>-2</sup>. Illuminance can be calculated from b<sub>i</sub> using the equation below.
+One input to this script is a mosaic image raster that contains sky brightness values in nanolamberts (nL). Once the values have been read into a 2D numpy array, these sky brightness values are converted from nanolamberts to sky brightness luminance values (b<sub>i</sub>), which has units of &mu;cd m<sup>-2</sup>. Illuminance can be calculated from b<sub>i</sub> using the equation below, where &Omega; is the solid angle per pixel in steradians. Illuminance has units of millilux (mlx).
 
 <img src="https://github.com/kkarnes/skyBrightnessMetrics/blob/master/static/E_i.PNG" alt="Illuminance equation" height="90">
 
 #### Natural Reference Conditions
-As was mentioned above, natural reference conditions (given a moonless night) are derived for each indicator to allow for the calculation of light pollution ratios. The natural reference conditions for horizontal and vertical maximum illuminance are 0.8 millilux and 0.4 millilux respectively.
+As discussed in [Purpose](#purpose), natural reference conditions (for a natural night sky on a moonless night) are derived for each indicator to allow for the calculation of light pollution ratios. The natural reference conditions for horizontal and vertical maximum illuminance are 0.8 mlx and 0.4 mlx respectively.
 
 #### Horizontal Illuminance
-Horizontal illuminance (E<sub>h</sub>) is calculated using the equation below. It is reported in millilux (mlx) and measures the amount of light striking a flat, horizontal surface such as the ground. Before beginning these calculations, a horizon mask is applied (see [Required Files](#2-required-files)) to remove non-sky areas from the image.
+Horizontal illuminance (E<sub>h</sub>) is calculated using the equation below. It is reported in mlx and measures the amount of light striking a flat, horizontal surface such as the ground. Before beginning these calculations, a horizon mask is applied (see [Required Files](#2-required-files)) to remove non-sky areas from the image.
 
 <img src="https://github.com/kkarnes/skyBrightnessMetrics/blob/master/static/E_h.PNG" alt="Horizontal illuminance equation" height="90">
 
@@ -72,7 +77,7 @@ Vertical illuminance measures the amount of light striking a flat, vertical surf
 For a vertical surface, the angle of incidence of light on the surface varies with both zenith angle (&theta;) and the angle along the azimuth axis between the light and the direction the surface faces (&Phi;). Note that in the equation above, the azimuth of the vertical surface is &Phi;<sub>i</sub>, while the angle of incidence of the light on the vertical surface is &Phi;.
 
 ### 5. Output
-This script creates a comma-delimited text file with three columns: azimuth (in degrees), vertical illuminance (in mlx), and horizontal illuminance (in mlx). The azimuth values vary depending on the interval set in `illuminance.py`. The second and third columns, respectively, contain the corresponding vertical illuminance value and the image's horizontal illuminance value (which does not vary with azimuth).
+This script creates a comma-delimited text file with three columns: azimuth (in degrees), vertical illuminance (in mlx), and horizontal illuminance (in mlx). The azimuth values vary depending on the interval set in `illuminance.py`. The second and third columns, respectively, contain the corresponding vertical illuminance value and the image's horizontal illuminance value (which does not vary with azimuth). The text file (`illuminance_results.txt`) is saved to the directory specified by `griddata` in `filepath.py`.
 
 A simple plot is useful for visualizing how vertical illuminance varies with azimuth for a certain image. Plots were also used during development for comparison purposes to ensure that the illuminance values produced by this script are consistent with the results from Dan Duriscoe's illuminance calculations in his script `secondbatchv4.py`. The sample plot below, created by running this script on data collected at Badlands National Park in 2018, demonstrates that `illuminance.py` successfully reproduces the results from `secondbatchv4.py`.
 
